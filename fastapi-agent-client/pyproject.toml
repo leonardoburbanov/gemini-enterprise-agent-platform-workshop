@@ -1,0 +1,9 @@
+[project]
+name = "fastapi-agent-client"
+version = "0.1.0"
+description = "FastAPI client for Agent Engine"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi[standard]",
+    "google-cloud-aiplatform>=1.43.0",
+]
