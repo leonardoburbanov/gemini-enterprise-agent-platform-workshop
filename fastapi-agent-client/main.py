@@ -42,12 +42,75 @@ def init_db():
                 user_id TEXT NOT NULL,
                 title TEXT NOT NULL DEFAULT 'New Chat',
                 messages TEXT NOT NULL DEFAULT '[]',
+                agent_session_id TEXT,
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL
             )
         """)
+        cols = {r[1] for r in db.execute("PRAGMA table_info(sessions)").fetchall()}
+        if "agent_session_id" not in cols:
+            db.execute("ALTER TABLE sessions ADD COLUMN agent_session_id TEXT")
 
 init_db()
+
+# --- Agent Runtime session bridge ---
+def _ensure_agent_session(user_id: str, session_id: str) -> str:
+    """Create a session on Agent Runtime; returns the remote session id."""
+    if not remote_agent:
+        raise HTTPException(status_code=500, detail="Agent Engine is not initialized.")
+    try:
+        resp = remote_agent.execution_api_client.query_reasoning_engine(
+            request=aip_types.QueryReasoningEngineRequest(
+                name=remote_agent.resource_name,
+                class_method="async_create_session",
+                input={"user_id": user_id, "session_id": session_id},
+            ),
+        )
+        out = dict(resp.output)
+        return str(out.get("id", session_id))
+    except Exception as e:
+        if "already exists" in str(e):
+            return session_id
+        raise
+
+def _get_agent_session_id(local_session_id: str) -> str | None:
+    with get_db() as db:
+        row = db.execute(
+            "SELECT agent_session_id FROM sessions WHERE id=?", (local_session_id,)
+        ).fetchone()
+    if row and row["agent_session_id"]:
+        return row["agent_session_id"]
+    return None
+
+def _save_agent_session_id(local_session_id: str, agent_session_id: str) -> None:
+    with get_db() as db:
+        db.execute(
+            "UPDATE sessions SET agent_session_id=? WHERE id=?",
+            (agent_session_id, local_session_id),
+        )
+
+def _resolve_agent_session_id(local_session_id: str, user_id: str) -> str:
+    """Map local chat id → Agent Runtime session id (create if missing)."""
+    cached = _get_agent_session_id(local_session_id)
+    if cached:
+        return cached
+    agent_id = _ensure_agent_session(user_id, local_session_id)
+    _save_agent_session_id(local_session_id, agent_id)
+    return agent_id
+
+def _stream_agent_events(agent_input: dict):
+    """Yield parsed NDJSON events from async_stream_query."""
+    response = remote_agent.execution_api_client.stream_query_reasoning_engine(
+        request=aip_types.StreamQueryReasoningEngineRequest(
+            name=remote_agent.resource_name,
+            input=agent_input,
+            class_method="async_stream_query",
+        ),
+    )
+    for chunk in response:
+        if not chunk.data:
+            continue
+        yield json.loads(chunk.data.decode("utf-8"))
 
 # --- Session endpoints ---
 class SessionCreate(BaseModel):
@@ -77,6 +140,8 @@ async def create_session(body: SessionCreate):
             "INSERT OR IGNORE INTO sessions (id, user_id, title, messages, created_at, updated_at) VALUES (?,?,?,?,?,?)",
             (body.id, body.user_id, body.title, json.dumps(body.messages), now, now)
         )
+    agent_id = _ensure_agent_session(body.user_id, body.id)
+    _save_agent_session_id(body.id, agent_id)
     return {"id": body.id}
 
 @app.put("/sessions/{session_id}")
@@ -135,22 +200,34 @@ async def query_agent_stream(request: QueryRequest):
     def generate():
         try:
             message = _build_message(request)
-            # ponytail: Agent Runtime owns sessions — local SQLite ids are not valid there
-            agent_input = {"message": message, "user_id": request.user_id}
-            response = remote_agent.execution_api_client.stream_query_reasoning_engine(
-                request=aip_types.StreamQueryReasoningEngineRequest(
-                    name=remote_agent.resource_name,
-                    input=agent_input,
-                    class_method="async_stream_query",
-                ),
-            )
-            for chunk in response:
-                if not chunk.data:
+            agent_session_id = _resolve_agent_session_id(request.session_id, request.user_id)
+            agent_input = {
+                "message": message,
+                "user_id": request.user_id,
+                "session_id": agent_session_id,
+            }
+
+            for attempt in range(2):
+                session_lost = False
+                for event in _stream_agent_events(agent_input):
+                    yield json.dumps(event) + "\n"
+                    code = event.get("code", 0)
+                    if code == 498:
+                        session_lost = True
+                        break
+                    if code >= 400:
+                        return
+
+                if not session_lost:
+                    return
+
+                if attempt == 0:
+                    agent_session_id = _ensure_agent_session(request.user_id, request.session_id)
+                    _save_agent_session_id(request.session_id, agent_session_id)
+                    agent_input["session_id"] = agent_session_id
                     continue
-                event = json.loads(chunk.data.decode("utf-8"))
-                yield json.dumps(event) + "\n"
-                if event.get("code", 0) >= 400:
-                    break
+                return
+
         except Exception as e:
             yield json.dumps({"__error": str(e)}) + "\n"
 
