@@ -35,7 +35,7 @@ CATALOGO = {
         "categoria": "laptops",
         "precio": 980.0,
         "stock": 12,
-        "imagen": "https://picsum.photos/seed/laptop-01/400",
+        "imagen": "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&q=80",
     },
     "laptop-02": {
         "id": "laptop-02",
@@ -43,7 +43,7 @@ CATALOGO = {
         "categoria": "laptops",
         "precio": 1450.0,
         "stock": 5,
-        "imagen": "https://picsum.photos/seed/laptop-02/400",
+        "imagen": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&q=80",
     },
     "mouse-01": {
         "id": "mouse-01",
@@ -51,7 +51,7 @@ CATALOGO = {
         "categoria": "accesorios",
         "precio": 35.0,
         "stock": 40,
-        "imagen": "https://picsum.photos/seed/mouse-01/400",
+        "imagen": "https://images.unsplash.com/photo-1527814050087-3793815479db?w=400&q=80",
     },
     "monitor-01": {
         "id": "monitor-01",
@@ -59,7 +59,7 @@ CATALOGO = {
         "categoria": "monitores",
         "precio": 320.0,
         "stock": 8,
-        "imagen": "https://picsum.photos/seed/monitor-01/400",
+        "imagen": "https://images.unsplash.com/photo-1625842268584-8f3296236761?w=400&q=80",
     },
     "teclado-01": {
         "id": "teclado-01",
@@ -67,7 +67,7 @@ CATALOGO = {
         "categoria": "accesorios",
         "precio": 60.0,
         "stock": 25,
-        "imagen": "https://picsum.photos/seed/teclado-01/400",
+        "imagen": "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=400&q=80",
     },
 }
 

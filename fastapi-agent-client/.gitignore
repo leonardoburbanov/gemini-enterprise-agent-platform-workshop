@@ -63,4 +63,6 @@ cover/
 *~
 .DS_Store
 
+# Local SQLite session store (created at runtime by init_db())
+sessions.db
 
