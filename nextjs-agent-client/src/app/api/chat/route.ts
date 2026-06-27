@@ -11,6 +11,8 @@ type GeminiPart = {
 type GeminiEvent = {
   content?: { parts?: GeminiPart[] };
   __error?: string;
+  code?: number;
+  message?: string;
 };
 
 type FilePart = { type: "file"; mediaType: string; url: string; name?: string };
@@ -95,6 +97,11 @@ export async function POST(req: Request) {
             if (event.__error) {
               closeText();
               enq({ type: "error", errorText: event.__error });
+              continue;
+            }
+            if (event.code && event.code >= 400) {
+              closeText();
+              enq({ type: "error", errorText: event.message ?? `Agent error ${event.code}` });
               continue;
             }
 

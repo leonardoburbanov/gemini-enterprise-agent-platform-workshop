@@ -135,11 +135,13 @@ async def query_agent_stream(request: QueryRequest):
     def generate():
         try:
             message = _build_message(request)
+            # ponytail: Agent Runtime owns sessions — local SQLite ids are not valid there
+            agent_input = {"message": message, "user_id": request.user_id}
             response = remote_agent.execution_api_client.stream_query_reasoning_engine(
                 request=aip_types.StreamQueryReasoningEngineRequest(
                     name=remote_agent.resource_name,
-                    input={"message": message, "user_id": request.user_id},
-                    class_method="stream_query",
+                    input=agent_input,
+                    class_method="async_stream_query",
                 ),
             )
             for chunk in response:
@@ -147,10 +149,16 @@ async def query_agent_stream(request: QueryRequest):
                     continue
                 event = json.loads(chunk.data.decode("utf-8"))
                 yield json.dumps(event) + "\n"
+                if event.get("code", 0) >= 400:
+                    break
         except Exception as e:
             yield json.dumps({"__error": str(e)}) + "\n"
 
-    return StreamingResponse(generate(), media_type="application/x-ndjson")
+    return StreamingResponse(
+        generate(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 @app.get("/health")
 async def health_check():
