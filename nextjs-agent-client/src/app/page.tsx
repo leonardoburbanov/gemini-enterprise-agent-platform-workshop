@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { isTextUIPart, isDynamicToolUIPart } from "ai";
 import type { UIMessage } from "ai";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   MessageScrollerProvider,
   MessageScroller,
@@ -16,12 +16,8 @@ import { Message, MessageContent } from "@/components/ui/message";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Marker, MarkerIcon, MarkerContent } from "@/components/ui/marker";
 import { Button } from "@/components/ui/button";
-import { SendIcon, SquareIcon, WrenchIcon, CheckIcon, LoaderIcon, PlusIcon, Trash2Icon, PaperclipIcon, FileIcon, XIcon } from "lucide-react";
+import { SendIcon, SquareIcon, WrenchIcon, CheckIcon, LoaderIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import Markdown from "react-markdown";
-import {
-  Attachment, AttachmentGroup, AttachmentMedia, AttachmentContent,
-  AttachmentTitle, AttachmentActions, AttachmentAction,
-} from "@/components/ui/attachment";
 
 type Session = { id: string; title: string; messages: UIMessage[] };
 
@@ -91,8 +87,6 @@ function ChatPanel({
     body: { session_id: sessionId },
   });
   const [input, setInput] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const isActive = status === "streaming" || status === "submitted";
 
   useEffect(() => {
@@ -100,13 +94,9 @@ function ChatPanel({
   }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function submit() {
-    if ((!input.trim() && files.length === 0) || isActive) return;
-    const fileList = files.length > 0
-      ? (() => { const dt = new DataTransfer(); files.forEach(f => dt.items.add(f)); return dt.files; })()
-      : undefined;
-    sendMessage({ text: input, files: fileList });
+    if (!input.trim() || isActive) return;
+    sendMessage({ text: input });
     setInput("");
-    setFiles([]);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -114,17 +104,6 @@ function ChatPanel({
       e.preventDefault();
       submit();
     }
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files) {
-      setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
-      e.target.value = "";
-    }
-  }
-
-  function removeFile(index: number) {
-    setFiles(prev => prev.filter((_, i) => i !== index));
   }
 
   return (
@@ -229,51 +208,10 @@ function ChatPanel({
         </MessageScroller>
 
         <div className="border-t shrink-0">
-          {files.length > 0 && (
-            <div className="px-4 pt-3">
-              <AttachmentGroup>
-                {files.map((file, i) => (
-                  <Attachment key={i} size="sm" orientation="horizontal">
-                    <AttachmentMedia variant={file.type.startsWith("image/") ? "image" : "icon"}>
-                      {file.type.startsWith("image/") ? (
-                        <img src={URL.createObjectURL(file)} alt={file.name} />
-                      ) : (
-                        <FileIcon />
-                      )}
-                    </AttachmentMedia>
-                    <AttachmentContent>
-                      <AttachmentTitle>{file.name}</AttachmentTitle>
-                    </AttachmentContent>
-                    <AttachmentActions>
-                      <AttachmentAction onClick={() => removeFile(i)} aria-label="Remove">
-                        <XIcon />
-                      </AttachmentAction>
-                    </AttachmentActions>
-                  </Attachment>
-                ))}
-              </AttachmentGroup>
-            </div>
-          )}
           <form
             onSubmit={(e) => { e.preventDefault(); submit(); }}
             className="px-4 py-3 flex gap-2 items-end"
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="Attach file"
-            >
-              <PaperclipIcon className="size-4" />
-            </Button>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -287,7 +225,7 @@ function ChatPanel({
                 <SquareIcon className="size-4" />
               </Button>
             ) : (
-              <Button type="submit" size="icon" disabled={!input.trim() && files.length === 0} aria-label="Send">
+              <Button type="submit" size="icon" disabled={!input.trim()} aria-label="Send">
                 <SendIcon className="size-4" />
               </Button>
             )}
@@ -389,22 +327,32 @@ export default function ChatPage() {
             </a>
 
             <div className="grid grid-cols-2 gap-2 pt-1">
-              <div className="flex flex-col items-center gap-1.5 rounded-lg border bg-muted/50 px-2 py-2.5">
+              <a
+                href="https://adk.dev/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center gap-1.5 rounded-lg border bg-muted/50 px-2 py-2.5 hover:bg-muted transition-colors"
+              >
                 <img
                   src="https://miro.medium.com/v2/1*A4-k_sI5kmrphjS4tJ_rpA.png"
                   alt="Google ADK"
                   className="h-7 w-auto object-contain"
                 />
                 <span className="text-[10px] font-medium text-muted-foreground">Google ADK</span>
-              </div>
-              <div className="flex flex-col items-center gap-1.5 rounded-lg border bg-muted/50 px-2 py-2.5">
+              </a>
+              <a
+                href="https://console.cloud.google.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center gap-1.5 rounded-lg border bg-muted/50 px-2 py-2.5 hover:bg-muted transition-colors"
+              >
                 <img
                   src="https://images.icon-icons.com/2642/PNG/512/google_cloud_logo_icon_159333.png"
                   alt="Google Cloud"
                   className="h-7 w-auto object-contain"
                 />
                 <span className="text-[10px] font-medium text-muted-foreground">Google Cloud</span>
-              </div>
+              </a>
             </div>
           </div>
 
