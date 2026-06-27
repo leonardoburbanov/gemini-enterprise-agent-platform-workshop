@@ -1,4 +1,4 @@
-const BACKEND = "http://localhost:8000";
+const BACKEND = process.env.BACKEND_URL ?? "http://localhost:8000";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

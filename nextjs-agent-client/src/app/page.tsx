@@ -84,7 +84,6 @@ function ChatPanel({
 }) {
   const { messages, sendMessage, stop, status, error } = useChat({
     messages: savedMessages,
-    body: { session_id: sessionId },
   });
   const [input, setInput] = useState("");
   const isActive = status === "streaming" || status === "submitted";
@@ -95,7 +94,7 @@ function ChatPanel({
 
   function submit() {
     if (!input.trim() || isActive) return;
-    sendMessage({ text: input });
+    sendMessage({ text: input }, { body: { session_id: sessionId } });
     setInput("");
   }
 

@@ -15,6 +15,8 @@ type GeminiEvent = {
 
 type FilePart = { type: "file"; mediaType: string; url: string; name?: string };
 
+const BACKEND = process.env.BACKEND_URL ?? "http://localhost:8000";
+
 export async function POST(req: Request) {
   const { messages, session_id } = await req.json();
   const lastMsg = messages?.at(-1);
@@ -34,7 +36,7 @@ export async function POST(req: Request) {
     data: p.url.startsWith("data:") ? p.url.split(",")[1] : p.url,
   }));
 
-  const upstream = await fetch("http://localhost:8000/query/stream", {
+  const upstream = await fetch(`${BACKEND}/query/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt, user_id: "default-user", session_id: session_id ?? "default-session", attachments }),

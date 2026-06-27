@@ -1,4 +1,4 @@
-const BACKEND = "http://localhost:8000";
+const BACKEND = process.env.BACKEND_URL ?? "http://localhost:8000";
 
 export async function GET(req: Request) {
   const user_id = new URL(req.url).searchParams.get("user_id") ?? "default-user";
